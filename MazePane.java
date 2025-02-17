@@ -6,6 +6,7 @@ import java.util.ArrayList;
 import java.util.Iterator;
 
 public class MazePane extends Pane {
+    
     private Player player;
     private ArrayList<Wall> walls;
     private ArrayList<Treasure> treasures;
