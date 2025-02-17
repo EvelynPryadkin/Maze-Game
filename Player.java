@@ -1,24 +1,14 @@
 import javafx.scene.paint.Color;
 import javafx.scene.shape.Circle;
 
-public class Player {
-    private Circle shape;
-    private double x, y;
+public class Player extends Circle {
 
-    public Player(double startX, double startY) {
-        x = startX;
-        y = startY;
-        shape = new Circle(x, y, 10, Color.YELLOW);
+    public Player(double x, double y) {
+        super(x, y, 20, Color.YELLOW); // Yellow circle as player
     }
 
-    public void move(double dx, double dy) {
-        x += dx;
-        y += dy;
-        shape.setCenterX(x);
-        shape.setCenterY(y);
+    public void move(double deltaX, double deltaY) {
+        setCenterX(getCenterX() + deltaX);
+        setCenterY(getCenterY() + deltaY);
     }
-
-    public double getX() { return x; }
-    public double getY() { return y; }
-    public Circle getShape() { return shape; }
 }
