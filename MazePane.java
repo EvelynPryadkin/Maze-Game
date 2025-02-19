@@ -3,102 +3,122 @@ import javafx.scene.input.MouseEvent;
 import javafx.scene.layout.Pane;
 import javafx.scene.paint.Color;
 import javafx.scene.shape.Circle;
+import javafx.scene.shape.Line;
 
 import java.io.File;
 import java.io.PrintWriter;
 import java.util.ArrayList;
+import java.util.Scanner;
 
 public class MazePane extends Pane {
     private ArrayList<Wall> walls;
     private ArrayList<Treasure> treasures;
-    private Wall dragging;
-    private Treasure placing;
-    private Color color;
-    private boolean drawingWalls;
+    private Player player;
+    private int score;
 
     public MazePane() {
         walls = new ArrayList<>();
         treasures = new ArrayList<>();
-        color = Color.RED;
-        drawingWalls = true; // Start in wall-drawing mode
+        score = 0;
 
-        // Create the grid of guide points
-        for (int row = 0; row <= 11; row++) {
-            for (int col = 0; col <= 16; col++) {
-                Circle circle = new Circle();
-                circle.setCenterX(col * 40);
-                circle.setCenterY(row * 40);
-                circle.setFill(Color.RED);
-                circle.setRadius(2);
-                this.getChildren().add(circle);
-            }
-        }
+        // Load the maze from a file
+        loadMaze();
 
-        this.setOnMousePressed(e -> startDrag(e));
-        this.setOnMouseDragged(e -> dragSegment(e));
-        this.setOnMouseReleased(e -> endDrag(e));
-        this.setOnKeyPressed(e -> keyPress(e));
+        // Add player to the scene
+        player = new Player(40, 40); // Starting position
+        this.getChildren().add(player.getShape());
+
+        this.setOnKeyPressed(e -> handleKeyPress(e));
     }
 
-    public void startDrag(MouseEvent e) {
-        if (drawingWalls) {
-            dragging = new Wall(e.getX(), e.getY());
-            walls.add(dragging);
-            this.getChildren().add(dragging.getShape());
-        } else {
-            placing = new Treasure(e.getX(), e.getY(), color);
-            treasures.add(placing);
-            this.getChildren().add(placing.getShape());
-        }
-    }
-
-    public void dragSegment(MouseEvent e) {
-        if (drawingWalls) {
-            dragging.setEnd(e.getX(), e.getY());
-        } else {
-            placing.setLocation(e.getX(), e.getY());
-        }
-    }
-
-    public void endDrag(MouseEvent e) {
-        if (drawingWalls) {
-            dragging.snapToGrid(e.getX(), e.getY());
-            dragging = null;
-        } else {
-            placing.snapToGrid(e.getX(), e.getY());
-            placing = null;
-        }
-    }
-
-    public void keyPress(KeyEvent e) {
-        switch (e.getCode()) {
-            case R -> color = Color.RED;
-            case G -> color = Color.GREEN;
-            case B -> color = Color.BLUE;
-            case BACK_SPACE -> {
-                if (!walls.isEmpty()) {
-                    Wall toRemove = walls.remove(walls.size() - 1);
-                    this.getChildren().remove(toRemove.getShape());
-                }
-            }
-            case P -> drawingWalls = !drawingWalls; // Toggle between walls/treasure
-        }
-    }
-
-    public void save() {
+    private void loadMaze() {
         try {
-            PrintWriter out = new PrintWriter(new File("maze.txt"));
-            out.println(walls.size());
-            for (Wall w : walls) {
-                w.write(out);
+            Scanner scanner = new Scanner(new File("maze.txt"));
+            int numWalls = scanner.nextInt();
+            for (int i = 0; i < numWalls; i++) {
+                double x1 = scanner.nextDouble();
+                double y1 = scanner.nextDouble();
+                double x2 = scanner.nextDouble();
+                double y2 = scanner.nextDouble();
+                Wall wall = new Wall(x1, y1);
+                wall.setEnd(x2, y2);
+                walls.add(wall);
+                this.getChildren().add(wall.getShape());
             }
-            out.println(treasures.size());
-            for (Treasure t : treasures) {
-                t.write(out);
+
+            int numTreasures = scanner.nextInt();
+            for (int i = 0; i < numTreasures; i++) {
+                double x = scanner.nextDouble();
+                double y = scanner.nextDouble();
+                String colorStr = scanner.next();
+                Color color = switch (colorStr) {
+                    case "blue" -> Color.BLUE;
+                    case "green" -> Color.GREEN;
+                    default -> Color.RED;
+                };
+                Treasure treasure = new Treasure(x, y, color);
+                treasures.add(treasure);
+                this.getChildren().add(treasure.getShape());
             }
-            out.close();
-        } catch (Exception ex) {
-            ex.printStackTrace();
+            scanner.close();
+        } catch (Exception e) {
+            e.printStackTrace();
         }
+    }
+
+    private void handleKeyPress(KeyEvent e) {
+        double dx = 0, dy = 0;
+
+        switch (e.getCode()) {
+            case LEFT -> dx = -40;
+            case RIGHT -> dx = 40;
+            case UP -> dy = -40;
+            case DOWN -> dy = 40;
+        }
+
+        if (!collisionDetected(player.getX() + dx, player.getY() + dy)) {
+            player.move(dx, dy);
+            checkTreasureCollision();
+        }
+    }
+
+    private boolean collisionDetected(double x, double y) {
+        for (Wall wall : walls) {
+            Line line = (Line) wall.getShape();
+            double startX = line.getStartX(), startY = line.getStartY();
+            double endX = line.getEndX(), endY = line.getEndY();
+
+            if (x > Math.min(startX, endX) && x < Math.max(startX, endX) &&
+                y > Math.min(startY, endY) && y < Math.max(startY, endY)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private void checkTreasureCollision() {
+        Treasure toRemove = null;
+
+        for (Treasure t : treasures) {
+            if (Math.abs(player.getX() - t.getShape().getLayoutX()) < 30 &&
+                Math.abs(player.getY() - t.getShape().getLayoutY()) < 30) {
+                toRemove = t;
+                break;
+            }
+        }
+
+        if (toRemove != null) {
+            treasures.remove(toRemove);
+            this.getChildren().remove(toRemove.getShape());
+            updateScore(toRemove);
+        }
+    }
+
+    private void updateScore(Treasure t) {
+        if (t.getShape().getFill() == Color.RED) score += 100;
+        else if (t.getShape().getFill() == Color.GREEN) score += 40;
+        else score += 10;
+        System.out.println("Score: " + score);
     }
 }
+
