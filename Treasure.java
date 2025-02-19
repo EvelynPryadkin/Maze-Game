@@ -44,3 +44,4 @@ public class Treasure {
         out.println(Math.round(rect.getX()) + " " + Math.round(rect.getY()) + " " + colorStr);
     }
 }
+
