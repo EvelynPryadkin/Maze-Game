@@ -102,3 +102,4 @@ public class MazePane extends Pane {
         }
     }
 }
+
